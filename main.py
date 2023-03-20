@@ -1,65 +1,48 @@
 #!/usr/bin/env python
 
+# Import the necessary ROS libraries and message types
 import rospy
-from geometry_msgs.msg import Twist
-from turtlesim.msg import Pose
-import math
-import sys, select, termios, tty
+from std_msgs.msg import String
 
-# Define global variables
-msg = Twist()
-pose = Pose()
-
-# Define keyboard control function
-def keyboard_control():
-    print("Use arrow keys to move the turtle. Press 'q' to exit.")
-    # Set up keyboard input
-    old_settings = termios.tcgetattr(sys.stdin)
-    tty.setcbreak(sys.stdin.fileno())
-    # Start loop
+# Define the publisher function
+def publisher():
+    # Create a Publisher object that publishes messages on the 'chatter' topic of type String
+    pub = rospy.Publisher('chatter', String, queue_size=10)
+    # Initialize the node with a unique name, and set it to be anonymous (if multiple nodes with the same name are launched, ROS will append numbers to make them unique)
+    rospy.init_node('publisher', anonymous=True)
+    # Set the rate at which the publisher publishes messages
+    rate = rospy.Rate(10) # 10hz
+    # Loop until the node is shutdown
     while not rospy.is_shutdown():
-        # Check for keyboard input
-        if select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], []):
-            key = sys.stdin.read(1)
-            # Move turtle based on keyboard input
-            if key == '\x1b[A':
-                msg.linear.x = 2.0
-            elif key == '\x1b[B':
-                msg.linear.x = -2.0
-            elif key == '\x1b[C':
-                msg.angular.z = -2.0
-            elif key == '\x1b[D':
-                msg.angular.z = 2.0
-            elif key == 'q':
-                break
-            else:
-                msg.linear.x = 0.0
-                msg.angular.z = 0.0
-        else:
-            msg.linear.x = 0.0
-            msg.angular.z = 0.0
-        # Publish movement commands
-        pub.publish(msg)
-        # Sleep for a short time
-        rospy.sleep(0.1)
-    # Reset keyboard settings
-    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+        # Create a string message to publish
+        hello_str = "Hello ROS, I am the publisher!"
+        # Log the message to the console
+        rospy.loginfo(hello_str)
+        # Publish the message on the 'chatter' topic
+        pub.publish(hello_str)
+        # Wait for the specified amount of time before publishing the next message
+        rate.sleep()
 
-# Define pose callback function
-def pose_callback(data):
-    global pose
-    pose = data
+# Define the subscriber function
+def subscriber():
+    # Initialize the node with a unique name, and set it to be anonymous
+    rospy.init_node('subscriber', anonymous=True)
+    # Create a Subscriber object that subscribes to the 'chatter' topic of type String, and calls the 'callback' function every time a message is received
+    rospy.Subscriber('chatter', String, callback)
+    # Spin until the node is shutdown
+    rospy.spin()
 
-# Define main function
+# Define the callback function that is called when a message is received
+def callback(data):
+    # Log the message to the console, along with the ID of the node that called the function
+    rospy.loginfo(rospy.get_caller_id() + "I heard %s", data.data)
+
+# Main function that executes when the program is run
 if __name__ == '__main__':
     try:
-        # Initialize node
-        rospy.init_node('turtle_control', anonymous=True)
-        # Set up publisher for twist commands
-        pub = rospy.Publisher('/turtle1/cmd_vel', Twist, queue_size=10)
-        # Set up subscriber for turtle pose
-        rospy.Subscriber('/turtle1/pose', Pose, pose_callback)
-        # Call keyboard control function
-        keyboard_control()
+        # Launch the publisher and subscriber nodes
+        publisher()
+        subscriber()
     except rospy.ROSInterruptException:
+        # Catch any exceptions that occur when the node is interrupted
         pass
